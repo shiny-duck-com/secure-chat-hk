@@ -13,6 +13,7 @@ export interface Contact {
   unreadCount?: number;
   isPinned?: boolean;
   isOnline?: boolean;
+  isArchived?: boolean;
 }
 
 export interface VerificationDetails {
@@ -43,7 +44,12 @@ export interface Message {
   isPinned?: boolean;
   type: 'text' | 'image' | 'document' | 'voice' | 'location';
   mediaUrl?: string;
-  duration?: number; // for voice messages
+  duration?: number;
+  replyTo?: {
+    id: string;
+    content: string;
+    senderName: string;
+  };
 }
 
 export interface Chat {
