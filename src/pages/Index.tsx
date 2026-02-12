@@ -5,15 +5,16 @@ import { BottomNav } from '@/components/BottomNav';
 import { ChatList } from '@/components/ChatList';
 import { ChatScreen } from '@/components/ChatScreen';
 import { ContactProfile } from '@/components/ContactProfile';
-import { ChatMenu } from '@/components/ChatMenu';
 import { ExportModal } from '@/components/ExportModal';
 import { QRScannerModal } from '@/components/QRScannerModal';
 import { CallsTab } from '@/components/CallsTab';
 import { SettingsTab } from '@/components/SettingsTab';
 import { DesktopNotice } from '@/components/DesktopNotice';
+import { NewChatScreen } from '@/components/NewChatScreen';
+import { MyQRCodeScreen } from '@/components/MyQRCodeScreen';
 import { toast } from 'sonner';
 
-type Screen = 'list' | 'chat' | 'profile';
+type Screen = 'list' | 'chat' | 'profile' | 'newchat' | 'myqrcode';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<TabType>('chats');
@@ -23,7 +24,6 @@ const Index = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   
   // Modal states
-  const [showChatMenu, setShowChatMenu] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
 
@@ -46,13 +46,15 @@ const Index = () => {
   const handleBack = useCallback(() => {
     if (currentScreen === 'profile') {
       setCurrentScreen('chat');
+    } else if (currentScreen === 'newchat' || currentScreen === 'myqrcode') {
+      setCurrentScreen('list');
     } else {
       setCurrentScreen('list');
       setSelectedContact(null);
     }
   }, [currentScreen]);
 
-  const handleSendMessage = useCallback((content: string) => {
+  const handleSendMessage = useCallback((content: string, replyTo?: { id: string; content: string; senderName: string }) => {
     const newMessage: Message = {
       id: `m${Date.now()}`,
       senderId: 'me',
@@ -63,6 +65,7 @@ const Index = () => {
       }),
       isRead: false,
       type: 'text',
+      replyTo,
     };
 
     setMessages((prev) => [...prev, newMessage]);
@@ -95,13 +98,7 @@ const Index = () => {
     }
   }, [selectedContact]);
 
-  const handleOpenExport = useCallback(() => {
-    setShowChatMenu(false);
-    setShowExportModal(true);
-  }, []);
-
   const handleContactFound = useCallback((contact: Contact) => {
-    // Add new contact with a demo message
     const newContact: Contact = {
       ...contact,
       lastMessage: '新聯絡人',
@@ -122,21 +119,66 @@ const Index = () => {
     });
   }, [selectedContact]);
 
-  const handleVideoCall = useCallback(() => {
-    toast.info('正在啟動視像通話...', {
-      description: `正在連接 ${selectedContact?.name.chinese}`,
-    });
-  }, [selectedContact]);
-
   const handleShare = useCallback(() => {
     toast.success('聯絡人卡片已複製', {
       description: '可以分享給其他人',
     });
   }, []);
 
+  const handleClearChat = useCallback(() => {
+    setMessages([]);
+  }, []);
+
+  const handleBlockContact = useCallback(() => {
+    if (selectedContact) {
+      setContacts((prev) => prev.filter((c) => c.id !== selectedContact.id));
+      setCurrentScreen('list');
+      setSelectedContact(null);
+    }
+  }, [selectedContact]);
+
+  const handleReportContact = useCallback((_reason: string) => {
+    // Report is handled via toast in ContactProfile
+  }, []);
+
+  const handleDeleteContact = useCallback(() => {
+    if (selectedContact) {
+      setContacts((prev) => prev.filter((c) => c.id !== selectedContact.id));
+      setCurrentScreen('list');
+      setSelectedContact(null);
+    }
+  }, [selectedContact]);
+
+  const handleArchiveChat = useCallback(() => {
+    if (selectedContact) {
+      setContacts((prev) =>
+        prev.map((c) =>
+          c.id === selectedContact.id ? { ...c, isArchived: true } : c
+        )
+      );
+      toast.success('聊天已封存');
+      setCurrentScreen('list');
+      setSelectedContact(null);
+    }
+  }, [selectedContact]);
+
+  const handleNewChatSelect = useCallback((contact: Contact) => {
+    handleSelectContact(contact);
+  }, [handleSelectContact]);
+
   const renderContent = () => {
     // Chat tab screens
     if (activeTab === 'chats') {
+      if (currentScreen === 'newchat') {
+        return (
+          <NewChatScreen
+            contacts={contacts.filter((c) => !c.isArchived)}
+            onSelectContact={handleNewChatSelect}
+            onCancel={handleBack}
+          />
+        );
+      }
+
       if (currentScreen === 'chat' && selectedContact) {
         return (
           <ChatScreen
@@ -144,7 +186,7 @@ const Index = () => {
             messages={messages}
             onBack={handleBack}
             onOpenProfile={() => setCurrentScreen('profile')}
-            onOpenMenu={() => setShowChatMenu(true)}
+            onCall={handleCall}
             onSendMessage={handleSendMessage}
           />
         );
@@ -156,8 +198,12 @@ const Index = () => {
             contact={selectedContact}
             onBack={handleBack}
             onCall={handleCall}
-            onVideoCall={handleVideoCall}
             onShare={handleShare}
+            onClearChat={handleClearChat}
+            onBlockContact={handleBlockContact}
+            onReportContact={handleReportContact}
+            onDeleteContact={handleDeleteContact}
+            onArchiveChat={handleArchiveChat}
           />
         );
       }
@@ -167,6 +213,7 @@ const Index = () => {
           contacts={contacts}
           onSelectContact={handleSelectContact}
           onOpenQRScanner={() => setShowQRScanner(true)}
+          onNewChat={() => setCurrentScreen('newchat')}
         />
       );
     }
@@ -176,7 +223,14 @@ const Index = () => {
     }
 
     if (activeTab === 'settings') {
-      return <SettingsTab />;
+      if (currentScreen === 'myqrcode') {
+        return <MyQRCodeScreen onBack={handleBack} />;
+      }
+      return (
+        <SettingsTab
+          onOpenMyQR={() => setCurrentScreen('myqrcode')}
+        />
+      );
     }
 
     return null;
@@ -193,7 +247,7 @@ const Index = () => {
           {renderContent()}
         </main>
 
-        {/* Bottom nav - hide when in chat or profile */}
+        {/* Bottom nav - hide when in chat, profile, newchat, or myqrcode */}
         {currentScreen === 'list' && (
           <BottomNav
             activeTab={activeTab}
@@ -203,12 +257,6 @@ const Index = () => {
         )}
 
         {/* Modals */}
-        <ChatMenu
-          isOpen={showChatMenu}
-          onClose={() => setShowChatMenu(false)}
-          onExport={handleOpenExport}
-        />
-
         <ExportModal
           isOpen={showExportModal}
           onClose={() => setShowExportModal(false)}

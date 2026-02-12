@@ -11,7 +11,11 @@ import { cn } from '@/lib/utils';
 import { Avatar } from './Avatar';
 import { getCurrentUser } from '@/data/mockData';
 
-export function SettingsTab() {
+interface SettingsTabProps {
+  onOpenMyQR?: () => void;
+}
+
+export function SettingsTab({ onOpenMyQR }: SettingsTabProps) {
   const user = getCurrentUser();
 
   return (
@@ -41,7 +45,10 @@ export function SettingsTab() {
 
         {/* My QR Code */}
         <div className="px-4 mb-6">
-          <button className="w-full flex items-center gap-3 p-4 bg-primary/5 rounded-2xl border border-primary/20 hover:bg-primary/10 transition-colors">
+          <button
+            onClick={onOpenMyQR}
+            className="w-full flex items-center gap-3 p-4 bg-primary/5 rounded-2xl border border-primary/20 hover:bg-primary/10 transition-colors"
+          >
             <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
               <QrCode className="w-6 h-6 text-primary" />
             </div>

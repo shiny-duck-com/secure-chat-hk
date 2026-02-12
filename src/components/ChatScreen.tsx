@@ -1,27 +1,42 @@
 import { useState, useRef, useEffect } from 'react';
 import { 
   ArrowLeft, 
-  MoreVertical, 
   Pin, 
   Send, 
   Paperclip,
   CheckCheck,
   Check,
   Lock,
-  X
+  X,
+  Phone,
+  Reply,
+  Forward,
+  Copy,
+  Info,
+  Trash2,
+  AlertTriangle,
+  ShieldCheck
 } from 'lucide-react';
 import { Contact, Message } from '@/types';
 import { cn } from '@/lib/utils';
 import { Avatar } from './Avatar';
 import { VerifiedBadge } from './VerifiedBadge';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
+import { toast } from 'sonner';
 
 interface ChatScreenProps {
   contact: Contact;
   messages: Message[];
   onBack: () => void;
   onOpenProfile: () => void;
-  onOpenMenu: () => void;
-  onSendMessage: (content: string) => void;
+  onCall: () => void;
+  onSendMessage: (content: string, replyTo?: { id: string; content: string; senderName: string }) => void;
 }
 
 export function ChatScreen({
@@ -29,11 +44,12 @@ export function ChatScreen({
   messages,
   onBack,
   onOpenProfile,
-  onOpenMenu,
+  onCall,
   onSendMessage,
 }: ChatScreenProps) {
   const [inputValue, setInputValue] = useState('');
   const [isFocused, setIsFocused] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<{ id: string; content: string; senderName: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -46,8 +62,9 @@ export function ChatScreen({
 
   const handleSend = () => {
     if (inputValue.trim()) {
-      onSendMessage(inputValue.trim());
+      onSendMessage(inputValue.trim(), replyingTo ?? undefined);
       setInputValue('');
+      setReplyingTo(null);
     }
   };
 
@@ -56,6 +73,17 @@ export function ChatScreen({
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const handleCopy = (content: string) => {
+    navigator.clipboard.writeText(content);
+    toast.success('已複製到剪貼簿');
+  };
+
+  const handleReply = (message: Message) => {
+    const senderName = message.senderId === 'me' ? '你' : contact.name.chinese;
+    setReplyingTo({ id: message.id, content: message.content, senderName });
+    inputRef.current?.focus();
   };
 
   return (
@@ -94,11 +122,11 @@ export function ChatScreen({
         </button>
         
         <button
-          onClick={onOpenMenu}
+          onClick={onCall}
           className="p-2 rounded-full hover:bg-secondary transition-colors active:scale-95 transform"
-          aria-label="更多選項"
+          aria-label="撥打電話"
         >
-          <MoreVertical className="w-6 h-6 text-foreground" />
+          <Phone className="w-6 h-6 text-foreground" />
         </button>
       </div>
 
@@ -121,15 +149,70 @@ export function ChatScreen({
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto scrollbar-hide px-4 py-4 space-y-3">
+        {/* E2E encryption badge */}
+        <div className="flex justify-center mb-4">
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-primary/5 border border-primary/10">
+            <ShieldCheck className="w-4 h-4 text-primary" />
+            <span className="text-xs text-muted-foreground">
+              此對話的訊息受端對端加密保護
+            </span>
+          </div>
+        </div>
+
         {messages.map((message) => (
-          <MessageBubble
-            key={message.id}
-            message={message}
-            isSent={message.senderId === 'me'}
-          />
+          <ContextMenu key={message.id}>
+            <ContextMenuTrigger>
+              <MessageBubble
+                message={message}
+                isSent={message.senderId === 'me'}
+                contactName={contact.name.chinese}
+              />
+            </ContextMenuTrigger>
+            <ContextMenuContent className="w-48">
+              <ContextMenuItem onClick={() => handleReply(message)} className="gap-2">
+                <Reply className="w-4 h-4" /> 回覆
+              </ContextMenuItem>
+              <ContextMenuItem onClick={() => toast.info('轉發功能開發中')} className="gap-2">
+                <Forward className="w-4 h-4" /> 轉發
+              </ContextMenuItem>
+              <ContextMenuItem onClick={() => handleCopy(message.content)} className="gap-2">
+                <Copy className="w-4 h-4" /> 複製
+              </ContextMenuItem>
+              <ContextMenuItem onClick={() => toast.info(`發送時間: ${message.timestamp}`)} className="gap-2">
+                <Info className="w-4 h-4" /> 資訊
+              </ContextMenuItem>
+              <ContextMenuItem onClick={() => toast.success('已置頂訊息')} className="gap-2">
+                <Pin className="w-4 h-4" /> 置頂
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+              <ContextMenuItem onClick={() => toast.success('已檢舉此訊息')} className="gap-2 text-warning focus:text-warning">
+                <AlertTriangle className="w-4 h-4" /> 檢舉
+              </ContextMenuItem>
+              <ContextMenuItem onClick={() => toast.success('訊息已刪除')} className="gap-2 text-destructive focus:text-destructive">
+                <Trash2 className="w-4 h-4" /> 刪除
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
         ))}
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Reply banner */}
+      {replyingTo && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-primary/5 border-t border-primary/10">
+          <Reply className="w-4 h-4 text-primary flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-primary">{replyingTo.senderName}</p>
+            <p className="text-xs text-muted-foreground truncate">{replyingTo.content}</p>
+          </div>
+          <button
+            onClick={() => setReplyingTo(null)}
+            className="p-1 rounded-full hover:bg-secondary transition-colors"
+          >
+            <X className="w-4 h-4 text-muted-foreground" />
+          </button>
+        </div>
+      )}
 
       {/* Input area */}
       <div className="px-3 py-3 border-t border-border bg-card pb-safe">
@@ -177,9 +260,10 @@ export function ChatScreen({
 interface MessageBubbleProps {
   message: Message;
   isSent: boolean;
+  contactName: string;
 }
 
-function MessageBubble({ message, isSent }: MessageBubbleProps) {
+function MessageBubble({ message, isSent, contactName }: MessageBubbleProps) {
   return (
     <div
       className={cn(
@@ -198,6 +282,13 @@ function MessageBubble({ message, isSent }: MessageBubbleProps) {
       >
         {message.isPinned && (
           <Pin className="absolute -top-2 -right-2 w-4 h-4 text-warning" />
+        )}
+        {/* Reply reference */}
+        {message.replyTo && (
+          <div className="mb-2 px-3 py-1.5 rounded-lg bg-foreground/5 border-l-2 border-primary">
+            <p className="text-xs font-medium text-primary">{message.replyTo.senderName}</p>
+            <p className="text-xs text-muted-foreground truncate">{message.replyTo.content}</p>
+          </div>
         )}
         <p className="text-sm leading-relaxed whitespace-pre-wrap">
           {message.content}

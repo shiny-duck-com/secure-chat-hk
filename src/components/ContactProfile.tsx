@@ -1,6 +1,6 @@
+import { useState } from 'react';
 import { 
   Phone, 
-  Video, 
   Share2, 
   ChevronRight, 
   Image as ImageIcon, 
@@ -14,29 +14,85 @@ import {
   IdCard,
   FileCheck,
   Calendar,
-  ShieldCheck
+  ShieldCheck,
+  UserMinus,
+  Archive,
+  X
 } from 'lucide-react';
 import { Contact } from '@/types';
 import { cn } from '@/lib/utils';
 import { Avatar } from './Avatar';
 import { VerifiedBadge, UnverifiedBadge } from './VerifiedBadge';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+import { toast } from 'sonner';
 
 interface ContactProfileProps {
   contact: Contact;
   onBack: () => void;
   onCall: () => void;
-  onVideoCall: () => void;
   onShare: () => void;
+  onClearChat: () => void;
+  onBlockContact: () => void;
+  onReportContact: (reason: string) => void;
+  onDeleteContact: () => void;
+  onArchiveChat: () => void;
 }
+
+const reportReasons = [
+  { id: 'spam', label: '垃圾訊息', labelEn: 'Spam' },
+  { id: 'phishing', label: '網絡釣魚', labelEn: 'Phishing' },
+  { id: 'trademark', label: '商標侵權', labelEn: 'Trademark Infringements' },
+  { id: 'adult', label: '成人色情內容', labelEn: 'Adult Sexual Material' },
+  { id: 'prohibited', label: '違禁或受限產品', labelEn: 'Prohibited or Restricted Products' },
+  { id: 'misleading', label: '誤導性商品服務資訊', labelEn: 'Misleading Information' },
+  { id: 'inauthentic', label: '虛假帳戶', labelEn: 'Inauthentic Accounts' },
+  { id: 'others', label: '其他', labelEn: 'Others' },
+];
 
 export function ContactProfile({ 
   contact, 
   onBack, 
   onCall, 
-  onVideoCall, 
-  onShare 
+  onShare,
+  onClearChat,
+  onBlockContact,
+  onReportContact,
+  onDeleteContact,
+  onArchiveChat,
 }: ContactProfileProps) {
   const { verificationDetails } = contact;
+  const [showClearDialog, setShowClearDialog] = useState(false);
+  const [showBlockDialog, setShowBlockDialog] = useState(false);
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [selectedReason, setSelectedReason] = useState('');
+
+  const handleClearConfirm = () => {
+    onClearChat();
+    setShowClearDialog(false);
+    toast.success('聊天記錄已清除');
+  };
+
+  const handleBlockConfirm = () => {
+    onBlockContact();
+    setShowBlockDialog(false);
+    toast.success('已封鎖此聯絡人');
+  };
+
+  const handleReportConfirm = () => {
+    if (!selectedReason) {
+      toast.error('請選擇檢舉原因');
+      return;
+    }
+    onReportContact(selectedReason);
+    setShowReportDialog(false);
+    setSelectedReason('');
+    toast.success('檢舉已提交', { description: '已發送至 ADCC (反詐騙協調中心)' });
+  };
 
   return (
     <div className="flex flex-col h-full bg-background screen-enter">
@@ -84,64 +140,98 @@ export function ContactProfile({
           </div>
         </div>
 
-        {/* Verification details card - STAR FEATURE */}
+        {/* Action buttons - no labels */}
+        <div className="flex justify-center gap-4 px-4 py-4">
+          <button
+            onClick={onCall}
+            className="flex items-center justify-center w-14 h-14 rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all active:scale-95 transform"
+            aria-label="通話"
+          >
+            <Phone className="w-6 h-6" />
+          </button>
+          <button
+            onClick={onShare}
+            className="flex items-center justify-center w-14 h-14 rounded-2xl bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-all active:scale-95 transform"
+            aria-label="分享聯絡人"
+          >
+            <Share2 className="w-6 h-6" />
+          </button>
+          <button
+            onClick={() => {
+              onDeleteContact();
+              toast.success('已刪除聯絡人', { description: `${contact.name.chinese} 已從聯絡人列表中移除` });
+            }}
+            className="flex items-center justify-center w-14 h-14 rounded-2xl bg-destructive/10 text-destructive hover:bg-destructive/20 transition-all active:scale-95 transform"
+            aria-label="刪除聯絡人"
+          >
+            <UserMinus className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Verification details accordion */}
         {contact.isVerified && verificationDetails && (
-          <div className="mx-4 mt-2 mb-4 p-4 bg-card rounded-2xl border border-accent/30 shadow-sm animate-fade-in">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center">
-                <ShieldCheck className="w-5 h-5 text-accent" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground">專業資格驗證</h3>
-                <p className="text-xs text-muted-foreground">Professional Verification</p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <VerificationRow
-                icon={Building2}
-                label="組織"
-                labelEn="Organization"
-                value={verificationDetails.organization.chinese}
-                valueEn={verificationDetails.organization.english}
-              />
-              <VerificationRow
-                icon={MapPin}
-                label="分行"
-                labelEn="Branch"
-                value={verificationDetails.branch.chinese}
-                valueEn={verificationDetails.branch.english}
-              />
-              <VerificationRow
-                icon={IdCard}
-                label="員工號碼"
-                labelEn="Employee ID"
-                value={verificationDetails.employeeId}
-              />
-              <VerificationRow
-                icon={FileCheck}
-                label="許可證號碼"
-                labelEn="License Number"
-                value={verificationDetails.licenseNumber}
-              />
-              <VerificationRow
-                icon={Calendar}
-                label="驗證日期"
-                labelEn="Verification Date"
-                value={verificationDetails.verificationDate}
-              />
-            </div>
-
-            {/* License status badge */}
-            <div className="mt-4 pt-4 border-t border-border">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">執照狀態</span>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent/10">
-                  <div className="w-2 h-2 rounded-full bg-accent animate-pulse-ring" />
-                  <span className="text-sm font-medium text-accent">已驗證 Verified</span>
-                </div>
-              </div>
-            </div>
+          <div className="mx-4 mt-2 mb-4">
+            <Accordion type="single" collapsible>
+              <AccordionItem value="verification" className="border border-accent/30 rounded-2xl overflow-hidden bg-card shadow-sm">
+                <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center">
+                      <ShieldCheck className="w-5 h-5 text-accent" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="font-semibold text-foreground text-sm">專業資格驗證</h3>
+                      <p className="text-xs text-muted-foreground">Professional Verification</p>
+                    </div>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="px-4 pb-2 space-y-3">
+                    <VerificationRow
+                      icon={Building2}
+                      label="組織"
+                      labelEn="Organization"
+                      value={verificationDetails.organization.chinese}
+                      valueEn={verificationDetails.organization.english}
+                    />
+                    <VerificationRow
+                      icon={MapPin}
+                      label="分行"
+                      labelEn="Branch"
+                      value={verificationDetails.branch.chinese}
+                      valueEn={verificationDetails.branch.english}
+                    />
+                    <VerificationRow
+                      icon={IdCard}
+                      label="員工號碼"
+                      labelEn="Employee ID"
+                      value={verificationDetails.employeeId}
+                    />
+                    <VerificationRow
+                      icon={FileCheck}
+                      label="許可證號碼"
+                      labelEn="License Number"
+                      value={verificationDetails.licenseNumber}
+                    />
+                    <VerificationRow
+                      icon={Calendar}
+                      label="驗證日期"
+                      labelEn="Verification Date"
+                      value={verificationDetails.verificationDate}
+                    />
+                    {/* License status badge */}
+                    <div className="pt-3 border-t border-border">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">執照狀態</span>
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent/10">
+                          <div className="w-2 h-2 rounded-full bg-accent animate-pulse-ring" />
+                          <span className="text-sm font-medium text-accent">已驗證 Verified</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </div>
         )}
 
@@ -160,61 +250,155 @@ export function ContactProfile({
           </div>
         )}
 
-        {/* Action buttons */}
-        <div className="flex justify-center gap-4 px-4 py-4">
-          <ActionButton
-            icon={Phone}
-            label="通話"
-            onClick={onCall}
-            primary
-          />
-          <ActionButton
-            icon={Video}
-            label="視像通話"
-            onClick={onVideoCall}
-          />
-          <ActionButton
-            icon={Share2}
-            label="分享聯絡人"
-            onClick={onShare}
-          />
-        </div>
-
         {/* Additional sections */}
         <div className="mt-4">
-          <SectionButton
-            icon={ImageIcon}
-            label="媒體"
-            labelEn="Media"
-            count={12}
-          />
-          <SectionButton
-            icon={Pin}
-            label="置頂訊息"
-            labelEn="Pinned Messages"
-            count={3}
-          />
+          <SectionButton icon={ImageIcon} label="媒體" labelEn="Media" count={12} />
+          <SectionButton icon={Pin} label="置頂訊息" labelEn="Pinned Messages" count={3} />
         </div>
 
         {/* Danger zone */}
         <div className="mt-6 pt-4 border-t border-border">
-          <DangerButton
-            icon={Trash2}
-            label="清除聊天"
-            labelEn="Clear Chat"
-          />
-          <DangerButton
-            icon={Ban}
-            label="封鎖"
-            labelEn="Block"
-          />
-          <DangerButton
-            icon={AlertTriangle}
-            label="檢舉"
-            labelEn="Report"
-            isReport
-          />
+          <DangerButton icon={Archive} label="封存聊天" labelEn="Archive Chat" onClick={onArchiveChat} />
+          <DangerButton icon={Trash2} label="清除聊天" labelEn="Clear Chat" onClick={() => setShowClearDialog(true)} />
+          <DangerButton icon={Ban} label="封鎖" labelEn="Block" onClick={() => setShowBlockDialog(true)} />
+          <DangerButton icon={AlertTriangle} label="檢舉" labelEn="Report" isReport onClick={() => setShowReportDialog(true)} />
         </div>
+      </div>
+
+      {/* Clear Chat Dialog */}
+      {showClearDialog && (
+        <DialogOverlay onClose={() => setShowClearDialog(false)}>
+          <div className="text-center mb-6">
+            <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-7 h-7 text-destructive" />
+            </div>
+            <h3 className="text-lg font-bold text-foreground">清除聊天記錄</h3>
+            <p className="text-sm text-muted-foreground mt-2">
+              確定要清除與 {contact.name.chinese} 的所有聊天記錄嗎？此操作無法撤銷。
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowClearDialog(false)}
+              className="flex-1 py-3 rounded-xl bg-secondary text-secondary-foreground font-medium hover:bg-secondary/80 transition-colors active:scale-95 transform"
+            >
+              取消
+            </button>
+            <button
+              onClick={handleClearConfirm}
+              className="flex-1 py-3 rounded-xl bg-destructive text-destructive-foreground font-medium hover:bg-destructive/90 transition-colors active:scale-95 transform"
+            >
+              清除
+            </button>
+          </div>
+        </DialogOverlay>
+      )}
+
+      {/* Block Dialog */}
+      {showBlockDialog && (
+        <DialogOverlay onClose={() => setShowBlockDialog(false)}>
+          <div className="text-center mb-6">
+            <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+              <Ban className="w-7 h-7 text-destructive" />
+            </div>
+            <h3 className="text-lg font-bold text-foreground">封鎖聯絡人</h3>
+            <p className="text-sm text-muted-foreground mt-2">
+              確定要封鎖 {contact.name.chinese} 嗎？封鎖後將無法收到此聯絡人的訊息。
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowBlockDialog(false)}
+              className="flex-1 py-3 rounded-xl bg-secondary text-secondary-foreground font-medium hover:bg-secondary/80 transition-colors active:scale-95 transform"
+            >
+              取消
+            </button>
+            <button
+              onClick={handleBlockConfirm}
+              className="flex-1 py-3 rounded-xl bg-destructive text-destructive-foreground font-medium hover:bg-destructive/90 transition-colors active:scale-95 transform"
+            >
+              確認封鎖
+            </button>
+          </div>
+        </DialogOverlay>
+      )}
+
+      {/* Report Dialog */}
+      {showReportDialog && (
+        <DialogOverlay onClose={() => setShowReportDialog(false)}>
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-warning/10 flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-warning" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-foreground">檢舉聯絡人</h3>
+                <p className="text-xs text-muted-foreground">Report Contact</p>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              請選擇檢舉原因：
+            </p>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {reportReasons.map((reason) => (
+                <button
+                  key={reason.id}
+                  onClick={() => setSelectedReason(reason.id)}
+                  className={cn(
+                    'w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors text-left',
+                    selectedReason === reason.id
+                      ? 'border-warning bg-warning/10'
+                      : 'border-border hover:bg-secondary/50'
+                  )}
+                >
+                  <div className={cn(
+                    'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0',
+                    selectedReason === reason.id ? 'border-warning' : 'border-muted-foreground/30'
+                  )}>
+                    {selectedReason === reason.id && (
+                      <div className="w-2.5 h-2.5 rounded-full bg-warning" />
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-medium text-foreground text-sm">{reason.label}</span>
+                    <span className="text-xs text-muted-foreground ml-2">{reason.labelEn}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => { setShowReportDialog(false); setSelectedReason(''); }}
+              className="flex-1 py-3 rounded-xl bg-secondary text-secondary-foreground font-medium hover:bg-secondary/80 transition-colors active:scale-95 transform"
+            >
+              取消
+            </button>
+            <button
+              onClick={handleReportConfirm}
+              className={cn(
+                'flex-1 py-3 rounded-xl font-medium transition-colors active:scale-95 transform',
+                selectedReason
+                  ? 'bg-warning text-warning-foreground hover:bg-warning/90'
+                  : 'bg-muted text-muted-foreground cursor-not-allowed'
+              )}
+            >
+              確認檢舉
+            </button>
+          </div>
+        </DialogOverlay>
+      )}
+    </div>
+  );
+}
+
+// Reusable dialog overlay
+function DialogOverlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-foreground/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-card rounded-2xl p-6 mx-6 w-full max-w-sm shadow-xl modal-content">
+        {children}
       </div>
     </div>
   );
@@ -245,30 +429,6 @@ function VerificationRow({ icon: Icon, label, labelEn, value, valueEn }: Verific
         )}
       </div>
     </div>
-  );
-}
-
-interface ActionButtonProps {
-  icon: React.ElementType;
-  label: string;
-  onClick: () => void;
-  primary?: boolean;
-}
-
-function ActionButton({ icon: Icon, label, onClick, primary }: ActionButtonProps) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'flex flex-col items-center gap-2 p-4 rounded-2xl transition-all duration-200 active:scale-95 transform min-w-[80px]',
-        primary
-          ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-          : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-      )}
-    >
-      <Icon className="w-6 h-6" />
-      <span className="text-xs font-medium">{label}</span>
-    </button>
   );
 }
 
@@ -306,11 +466,13 @@ interface DangerButtonProps {
   label: string;
   labelEn: string;
   isReport?: boolean;
+  onClick?: () => void;
 }
 
-function DangerButton({ icon: Icon, label, labelEn, isReport }: DangerButtonProps) {
+function DangerButton({ icon: Icon, label, labelEn, isReport, onClick }: DangerButtonProps) {
   return (
     <button
+      onClick={onClick}
       className={cn(
         'w-full flex items-center gap-3 px-4 py-3.5 transition-colors',
         isReport 
