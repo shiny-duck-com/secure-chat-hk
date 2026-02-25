@@ -170,7 +170,7 @@ export function ChatList({ contacts, onSelectContact, onOpenQRScanner, onNewChat
             <p className="text-sm">找不到聊天記錄</p>
           </div>
         ) : (
-          <div className="divide-y divide-border">
+          <div className="divide-y divide-border space-y-1">
             {filteredContacts.map((contact) => (
               <ChatListItem
                 key={contact.id}
@@ -194,7 +194,7 @@ function ChatListItem({ contact, onClick }: ChatListItemProps) {
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors active:bg-secondary text-left"
+      className="w-full flex items-center gap-3 px-4 py-4 hover:bg-secondary/50 transition-colors active:bg-secondary text-left"
     >
       <Avatar
         name={contact.name.chinese}
